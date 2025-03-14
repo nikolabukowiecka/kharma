@@ -263,6 +263,97 @@ class SphKSExtG {
 };
 
 /**
+ * Spherical polar ingoing Kerr-Schild coordinates for KerrHayward*/
+class KHinKS {
+    public:
+        static constexpr char name[] = "KHinKS";
+        // BH Spin is a property of KS
+        const GReal a;
+        const GReal L;
+        
+        static constexpr bool spherical = true;
+
+        //KOKKOS_FUNCTION SphKSCoords(GReal spin): a(spin) {};
+        //KOKKOS_FUNCTION SphInKS(GReal spin): a(spin) {};
+        KOKKOS_FUNCTION KHinKS(GReal spin, GReal L): a(spin), L(L) {};
+
+        KOKKOS_INLINE_FUNCTION void gcov_embed(const GReal Xembed[GR_DIM], Real gcov[GR_DIM][GR_DIM]) const
+        {
+            //static constexpr GReal L = 1.46797639e-8;
+            //static constexpr GReal M = 1.46797639e-8;
+            
+            const GReal r = Xembed[1];
+            const GReal th = excise(excise(Xembed[2], 0.0, SMALL), M_PI, SMALL);
+
+            const GReal cth = m::cos(th);
+            const GReal sth = m::sin(th);
+            const GReal sin2 = sth * sth;
+            const GReal rho = r * r + a * a;
+            const GReal rho2 = r * r + a * a * cth * cth;
+            const GReal lfun = 2. * L * L + r * r * r * r;
+            const GReal mfun = 2. * r * r * r * r * r;
+       
+            gcov[0][0] = - 1. + mfun / (lfun * rho2);
+            gcov[0][1] = mfun / (lfun*rho2);
+            gcov[0][2] = 0.;
+            gcov[0][3] = - mfun * a * sin2 / (lfun * rho2);
+
+            gcov[1][0] = mfun / (lfun * rho2);
+            gcov[1][1] = 1. + mfun / (lfun * rho2);
+            gcov[1][2] = 0.;
+            gcov[1][3] = - a * sin2 * (1. + (mfun / (lfun * rho2)));
+
+            gcov[2][0] = 0.;
+            gcov[2][1] = 0.;
+            gcov[2][2] = rho2;
+            gcov[2][3] = 0.;
+
+            gcov[3][0] = - a * mfun * sin2 / (lfun * rho2);
+            gcov[3][1] = - a * sin2 * (1. + (mfun / (lfun * rho2)));
+            gcov[3][2] = 0.;
+            gcov[3][3] = (sin2 * ((rho * rho) - a * a * (rho - (mfun / lfun)) * sin2)) / rho2;
+        }
+
+        // For converting from BL
+        KOKKOS_INLINE_FUNCTION void vec_from_bl(const GReal Xembed[GR_DIM], const Real vcon_bl[GR_DIM], Real vcon[GR_DIM]) const
+        {
+            GReal r = Xembed[1];
+            Real trans[GR_DIM][GR_DIM];
+            DLOOP2 trans[mu][nu] = (mu == nu);
+            
+            const GReal l4 = L * L * L * L;
+            const GReal r4 = r * r * r * r;
+            const GReal r5 = r * r * r * r * r;
+            
+            trans[0][1] = (2. * r5) / ((2. * l4 * r * r)  + (r5 * (- 2. + r)) + (a * a * (2. * l4 + r4)));
+            trans[3][1] = a / ((a * a) + (r * r) - ((2. * r5) / (2. * l4 + r4)));
+
+            gzero(vcon);
+            DLOOP2 vcon[mu] += trans[mu][nu]*vcon_bl[nu];
+        }
+
+        KOKKOS_INLINE_FUNCTION void vec_to_bl(const GReal Xembed[GR_DIM], const Real vcon_bl[GR_DIM], Real vcon[GR_DIM]) const
+        {
+            GReal r = Xembed[1];
+            GReal rtrans[GR_DIM][GR_DIM], trans[GR_DIM][GR_DIM];
+            DLOOP2 rtrans[mu][nu] = (mu == nu);
+            
+            const GReal l4 = L * L * L * L;
+            const GReal r4 = r * r * r * r;
+            const GReal r5 = r * r * r * r * r;
+            
+            rtrans[0][1] = (2. * r5) / ((2. * l4 * r * r)  + (r5 * (- 2. + r)) + (a * a * (2. * l4 + r4)));
+            rtrans[3][1] = a / ((a * a) + (r * r) - ((2. * r5) / (2. * l4 + r4)));
+
+            invert(&rtrans[0][0], &trans[0][0]);
+
+            gzero(vcon);
+            DLOOP2 vcon[mu] += trans[mu][nu]*vcon_bl[nu];
+        }
+};
+
+
+/**
  * Boyer-Lindquist coordinates as an embedding system
  */
 class SphBLCoords {
@@ -743,5 +834,5 @@ class WidepoleTransform {
 // Bundle coordinates and transforms into umbrella variant types
 // These act as a wannabe "interface" or "parent class" with the exception that access requires "mpark::visit"
 // See coordinate_embedding.hpp
-using SomeBaseCoords = mpark::variant<SphMinkowskiCoords, CartMinkowskiCoords, SphBLCoords, SphKSCoords, SphBLExtG, SphKSExtG>;
+using SomeBaseCoords = mpark::variant<SphMinkowskiCoords, CartMinkowskiCoords, SphBLCoords, SphKSCoords,  KHinKS>;
 using SomeTransform = mpark::variant<NullTransform, SphNullTransform, ExponentialTransform, SuperExponentialTransform, ModifyTransform, FunkyTransform, WidepoleTransform>;

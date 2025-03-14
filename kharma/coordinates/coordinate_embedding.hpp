@@ -94,10 +94,13 @@ class CoordinateEmbedding {
                 base.emplace<SphBLCoords>(mpark::get<SphBLCoords>(base_in));
             } else if (mpark::holds_alternative<SphKSCoords>(base_in)) {
                 base.emplace<SphKSCoords>(mpark::get<SphKSCoords>(base_in));
-            } else if (mpark::holds_alternative<SphKSExtG>(base_in)) {
-                base.emplace<SphKSExtG>(mpark::get<SphKSExtG>(base_in));
-            } else if (mpark::holds_alternative<SphBLExtG>(base_in)) {
-                base.emplace<SphBLExtG>(mpark::get<SphBLExtG>(base_in));
+            } //else if (mpark::holds_alternative<SphKSExtG>(base_in)) {
+                //base.emplace<SphKSExtG>(mpark::get<SphKSExtG>(base_in));
+            //} else if (mpark::holds_alternative<SphBLExtG>(base_in)) {
+               // base.emplace<SphBLExtG>(mpark::get<SphBLExtG>(base_in));
+            //}
+            else if (mpark::holds_alternative<KHinKS>(base_in)) {
+                base.emplace<KHinKS>(mpark::get<KHinKS>(base_in));
             }
 
             if (mpark::holds_alternative<NullTransform>(transform_in)) {
@@ -132,22 +135,27 @@ class CoordinateEmbedding {
                         base_str == "spherical_ks_extg" || base_str == "ks_extg") {
                 GReal a = pin->GetReal("coordinates", "a");
                 bool ext_g = pin->GetOrAddBoolean("coordinates", "ext_g", false);
-                if (ext_g || base_str == "spherical_ks_extg" || base_str == "ks_extg") {
-                    if (a > 0) throw std::invalid_argument("Transform is for spherical coordinates!");
-                    base.emplace<SphKSExtG>(SphKSExtG(a));
-                } else {
+               // if (ext_g || base_str == "spherical_ks_extg" || base_str == "ks_extg") {
+               //     if (a > 0) throw std::invalid_argument("Transform is for spherical coordinates!");
+               //     base.emplace<SphKSExtG>(SphKSExtG(a));
+               // } else {
                     base.emplace<SphKSCoords>(SphKSCoords(a));
-                }
+                //}
+            } else if (base_str == "kerrhayward_in_ks" || base_str == "khinks" ||
+                      base_str == "kh_inks") {
+                GReal a = pin->GetReal("coordinates", "a");
+                GReal L = pin->GetReal("coordinates", "L");
+                base.emplace<KHinKS>(KHinKS(a, L));
             } else if (base_str == "spherical_bl" || base_str == "bl" ||
                         base_str == "spherical_bl_extg" || base_str == "bl_extg") {
                 GReal a = pin->GetReal("coordinates", "a");
                 bool ext_g = pin->GetOrAddBoolean("coordinates", "ext_g", false);
-                if (ext_g || base_str == "spherical_bl_extg" || base_str == "bl_extg") {
-                    if (a > 0) throw std::invalid_argument("Transform is for spherical coordinates!");
-                    base.emplace<SphBLExtG>(SphBLExtG(a));
-                } else {
+                //if (ext_g || base_str == "spherical_bl_extg" || base_str == "bl_extg") {
+                   // if (a > 0) throw std::invalid_argument("Transform is for spherical coordinates!");
+                    //base.emplace<SphBLExtG>(SphBLExtG(a));
+                //} else {
                     base.emplace<SphBLCoords>(SphBLCoords(a));
-                }
+                //}
             } else {
                 throw std::invalid_argument("Unsupported base coordinates!");
             }
@@ -248,8 +256,9 @@ class CoordinateEmbedding {
         {
             if (mpark::holds_alternative<SphKSCoords>(base) ||
                 mpark::holds_alternative<SphBLCoords>(base) ||
-                mpark::holds_alternative<SphKSExtG>(base) ||
-                mpark::holds_alternative<SphBLExtG>(base)) {
+                //mpark::holds_alternative<SphKSExtG>(base) ||
+                mpark::holds_alternative<KHinKS>(base) ){
+                //mpark::holds_alternative<SphBLExtG>(base)) {
                 const GReal a = get_a();
                 return 1 + m::sqrt(1 - a * a);
             } else {
@@ -584,12 +593,13 @@ class CoordinateEmbedding {
             // Set u^t to make u a velocity 4-vector in BL
             GReal gcov_bl[GR_DIM][GR_DIM];
             if (mpark::holds_alternative<SphKSCoords>(base) ||
-                mpark::holds_alternative<SphBLCoords>(base)) {
+                mpark::holds_alternative<SphBLCoords>(base) ||
+                mpark::holds_alternative<KHinKS>(base)) {
                 SphBLCoords(get_a()).gcov_embed(Xembed, gcov_bl);
-            } else if (mpark::holds_alternative<SphKSExtG>(base) ||
-                       mpark::holds_alternative<SphBLExtG>(base)) {
-                SphBLExtG(get_a()).gcov_embed(Xembed, gcov_bl);
-            }
+            } //else if (mpark::holds_alternative<SphKSExtG>(base) ||
+             //          mpark::holds_alternative<SphBLExtG>(base)) {
+              //  SphBLExtG(get_a()).gcov_embed(Xembed, gcov_bl);
+           // }
 
             Real ucon_bl_fourv[GR_DIM];
             DLOOP1 ucon_bl_fourv[mu] = ucon_bl[mu];
@@ -599,11 +609,13 @@ class CoordinateEmbedding {
             Real ucon_base[GR_DIM];
             if (mpark::holds_alternative<SphKSCoords>(base)) {
                 mpark::get<SphKSCoords>(base).vec_from_bl(Xembed, ucon_bl_fourv, ucon_base);
-            } else if (mpark::holds_alternative<SphKSExtG>(base)) {
-                mpark::get<SphKSExtG>(base).vec_from_bl(Xembed, ucon_bl_fourv, ucon_base);
-            } else if (mpark::holds_alternative<SphBLCoords>(base) ||
-                       mpark::holds_alternative<SphBLExtG>(base)) {
-                DLOOP1 ucon_base[mu] = ucon_bl_fourv[mu];
+            } //else if (mpark::holds_alternative<SphKSExtG>(base)) {
+               // mpark::get<SphKSExtG>(base).vec_from_bl(Xembed, ucon_bl_fourv, ucon_base);
+             else if (mpark::holds_alternative<KHinKS>(base)) {
+                mpark::get<KHinKS>(base).vec_from_bl(Xembed, ucon_bl_fourv, ucon_base);
+            } else if (mpark::holds_alternative<SphBLCoords>(base)) //||
+                     //  mpark::holds_alternative<SphBLExtG>(base)) {
+               { DLOOP1 ucon_base[mu] = ucon_bl_fourv[mu];
             }
             // Finally, apply any transform to native coordinates
             con_vec_to_native(Xnative, ucon_base, ucon_native);

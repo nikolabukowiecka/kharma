@@ -31,6 +31,7 @@ conv_2d() {
 
 # Test boundaries
 ALL_RES="16,24,32,48,64"
+conv_2d khinks "coordinates/base=kh_inks coordinates/L=0." "in 2D, baseline"
 conv_2d base " " "in 2D, baseline"
 conv_2d kastaun "inverter/type=kastaun" "in 2D, Kastaun inverter"
 
